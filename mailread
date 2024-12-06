@@ -1,0 +1,75 @@
+import email
+import pyttsx3
+import imaplib
+from email.header import decode_header
+
+
+imap_user = "likhithajn2004@gmail.com"
+imap_pass = "zufc rkfk ghzy rgva"  #
+imap_server = "imap.gmail.com"
+
+def get_latest_email_details():
+
+    imap = imaplib.IMAP4_SSL(imap_server)
+    try:
+
+        imap.login(imap_user, imap_pass)
+
+
+        status, messages = imap.select('inbox')
+        messages = int(messages[0])
+
+
+        status, msg_data = imap.fetch(str(messages), '(RFC822)')
+        for response in msg_data:
+            if isinstance(response, tuple):
+                msg = email.message_from_bytes(response[1])
+
+
+                subject, encoding = decode_header(msg["Subject"])[0]
+                if isinstance(subject, bytes):
+                    subject = subject.decode(encoding if encoding else 'utf-8')
+
+
+                from_ = msg.get("From")
+
+                email_body = ""
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        content_type = part.get_content_type()
+                        content_disposition = str(part.get("Content-Disposition"))
+
+                        if "attachment" not in content_disposition:
+                            if content_type == "text/plain":
+                                email_body = part.get_payload(decode=True).decode('utf-8')
+                                break
+                            elif content_type == "text/html":
+                                email_body = part.get_payload(decode=True).decode('utf-8')
+                else:
+
+                    email_body = msg.get_payload(decode=True).decode('utf-8')
+
+                return from_, subject, email_body
+
+    except Exception as e:
+        print(f"Error fetching email: {e}")
+        return None, None, None
+    finally:
+
+        imap.close()
+        imap.logout()
+
+def speak_text(sender, subject, body):
+    if sender and subject and body:
+        engine = pyttsx3.init()
+
+        text = f"You have a new email from {sender}. The subject is {subject}. The email body says: {body}"
+        engine.say(text)
+        engine.runAndWait()
+    else:
+        print("No email details to speak.")
+
+
+if __name__ == "__main__":
+    sender, subject, email_text = get_latest_email_details()
+    speak_text(sender, subject, email_text)
